@@ -1,11 +1,16 @@
 <?php
 
-namespace FileLock;
+namespace Fostam\FileLock;
 
-use FileLock\Exception\LockFileNotOpenableException;
-use FileLock\Exception\StaleLockFileException;
+use Fostam\FileLock\Exception\LockFileNotOpenableException;
+use Fostam\FileLock\Exception\LockFileOperationFailureException;
+use Fostam\FileLock\Exception\StaleLockFileException;
 
 class FileLock {
+    const STALE_LOCK_IGNORE = 1;
+    const STALE_LOCK_WARN = 2;
+    const STALE_LOCK_EXCEPTION = 3;
+
     /**
      * @var string
      */
@@ -34,18 +39,21 @@ class FileLock {
     }
 
     /**
-     *
+     * @throws LockFileOperationFailureException
      */
     public function __destruct() {
-        $this->release();
+        ## $this->release(); // TODO
     }
 
     /**
-     * @param int $timeoutMS
-     * @throws \Exception
+     * @param int $timeout timeout in seconds
+     * @param int $staleLockMode
      * @return bool
+     * @throws LockFileNotOpenableException
+     * @throws LockFileOperationFailureException
+     * @throws StaleLockFileException
      */
-    public function acquire($timeoutMS = 0) {
+    public function acquire($timeout = 0, $staleLockMode = self::STALE_LOCK_WARN) {
         $this->fileHandle = fopen($this->filename, 'c+');
         if ($this->fileHandle === false) {
             $errorStr = error_get_last();
@@ -53,36 +61,72 @@ class FileLock {
         }
 
         $runningPID = trim(fgets($this->fileHandle));
-        if (empty($runningPID)) {
-            $runningState = false;
-        }
-        else {
-            $runningState = posix_getpgid($runningPID);
-        }
 
-        if (!flock($this->fileHandle, LOCK_EX | LOCK_NB)) {
-            if ($runningState === false) {
+        if (!empty($runningPID) && !posix_getpgid($runningPID)) {
+            if ($staleLockMode === self::STALE_LOCK_WARN) {
+                trigger_error("stale lock file {$this->filename} exists with PID {$runningPID}", E_USER_WARNING);
+            }
+            else if ($staleLockMode === self::STALE_LOCK_EXCEPTION) {
                 throw new StaleLockFileException('stale lock file exists', 0, null, $this->filename, $runningPID);
             }
+        }
+
+        // TODO timeout
+        $flags = LOCK_EX;
+        if (!$timeout) {
+            $flags |= LOCK_NB;
+        }
+
+        if (!flock($this->fileHandle, $flags)) {
+            if (!fclose($this->fileHandle)) {
+                throw new LockFileOperationFailureException('fclose', 0, null, $this->filename);
+            }
+            $this->fileHandle = null;
             return false;
         }
 
         $pid = getmypid();
-        ftruncate($this->fileHandle, 0);
-        rewind($this->fileHandle);
-        fputs($this->fileHandle, $pid);
-        fflush($this->fileHandle);
+
+        if (!ftruncate($this->fileHandle, 0)) {
+            throw new LockFileOperationFailureException('ftruncate', 0, null, $this->filename);
+        }
+
+        if (!rewind($this->fileHandle)) {
+            throw new LockFileOperationFailureException('rewind', 0, null, $this->filename);
+        }
+
+        if (!fputs($this->fileHandle, $pid)) {
+            throw new LockFileOperationFailureException('fputs', 0, null, $this->filename);
+        }
+
+        if (!fflush($this->fileHandle)) {
+            throw new LockFileOperationFailureException('fflush', 0, null, $this->filename);
+        }
 
         return true;
     }
 
     /**
-     *
+     * @throws LockFileOperationFailureException
      */
     public function release() {
-        flock($this->fileHandle, LOCK_UN);
-        fclose($this->fileHandle);
-        unlink($this->filename);
+        if (is_null($this->fileHandle)) {
+            return;
+        }
+
+        if (!flock($this->fileHandle, LOCK_UN)) {
+            throw new LockFileOperationFailureException('flock', 0, null, $this->filename);
+        }
+
+        if (!fclose($this->fileHandle)) {
+            throw new LockFileOperationFailureException('fclose', 0, null, $this->filename);
+        }
+
+        if (!unlink($this->filename)) {
+            throw new LockFileOperationFailureException('unlink', 0, null, $this->filename);
+        }
+
+        $this->fileHandle = null;
     }
 
     /**

@@ -1,6 +1,6 @@
 <?php
 
-namespace FileLock\Exception;
+namespace Fostam\FileLock\Exception;
 
 use Throwable;
 

@@ -42,7 +42,7 @@ class FileLock {
      * @throws LockFileOperationFailureException
      */
     public function __destruct() {
-        ## $this->release(); // TODO
+        $this->release();
     }
 
     /**
@@ -54,6 +54,31 @@ class FileLock {
      * @throws StaleLockFileException
      */
     public function acquire($timeout = 0, $staleLockMode = self::STALE_LOCK_WARN) {
+        $maxTS = time() + $timeout;
+        do {
+            if ($this->lock($staleLockMode)) {
+                return true;
+            }
+
+            if ($timeout === 0) {
+                return false;
+            }
+
+            sleep(1);
+        }
+        while(time() < $maxTS);
+
+        return false;
+    }
+
+    /**
+     * @param int $staleLockMode
+     * @return bool
+     * @throws LockFileNotOpenableException
+     * @throws LockFileOperationFailureException
+     * @throws StaleLockFileException
+     */
+    private function lock($staleLockMode = self::STALE_LOCK_WARN) {
         $this->fileHandle = fopen($this->filename, 'c+');
         if ($this->fileHandle === false) {
             $errorStr = error_get_last();
@@ -71,13 +96,7 @@ class FileLock {
             }
         }
 
-        // TODO timeout
-        $flags = LOCK_EX;
-        if (!$timeout) {
-            $flags |= LOCK_NB;
-        }
-
-        if (!flock($this->fileHandle, $flags)) {
+        if (!flock($this->fileHandle, LOCK_EX | LOCK_NB)) {
             if (!fclose($this->fileHandle)) {
                 throw new LockFileOperationFailureException('fclose', 0, null, $this->filename);
             }
@@ -114,16 +133,17 @@ class FileLock {
             return;
         }
 
+        // delete the file before releasing the lock to avoid race conditions
+        if (!unlink($this->filename)) {
+            throw new LockFileOperationFailureException('unlink', 0, null, $this->filename);
+        }
+
         if (!flock($this->fileHandle, LOCK_UN)) {
             throw new LockFileOperationFailureException('flock', 0, null, $this->filename);
         }
 
         if (!fclose($this->fileHandle)) {
             throw new LockFileOperationFailureException('fclose', 0, null, $this->filename);
-        }
-
-        if (!unlink($this->filename)) {
-            throw new LockFileOperationFailureException('unlink', 0, null, $this->filename);
         }
 
         $this->fileHandle = null;

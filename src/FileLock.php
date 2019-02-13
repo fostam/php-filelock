@@ -81,7 +81,7 @@ class FileLock {
     private function lock($staleLockMode = self::STALE_LOCK_WARN) {
         $this->fileHandle = fopen($this->filename, 'c+');
         if ($this->fileHandle === false) {
-            $errorStr = error_get_last();
+            $errorStr = error_get_last()['message'];
             throw new LockFileNotOpenableException($errorStr, 0, null, $this->filename);
         }
 

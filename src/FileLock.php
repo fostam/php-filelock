@@ -104,14 +104,19 @@ class FileLock {
             throw new LockFileNotOpenableException($errorStr, 0, null, $this->filename);
         }
 
+        if (!function_exists('posix_getpgid')) {
+            return;
+        }
+
         $runningPID = trim(fgets($this->fileHandle));
 
         if (!empty($runningPID) && !posix_getpgid($runningPID)) {
+            $msg = "stale lock file {$this->filename} exists with PID {$runningPID}";
             if ($staleLockMode === self::STALE_LOCK_WARN) {
-                trigger_error("stale lock file {$this->filename} exists with PID {$runningPID}", E_USER_WARNING);
+                trigger_error($msg, E_USER_WARNING);
             }
             else if ($staleLockMode === self::STALE_LOCK_EXCEPTION) {
-                throw new StaleLockFileException('stale lock file exists', 0, null, $this->filename, $runningPID);
+                throw new StaleLockFileException($msg, 0, null, $this->filename, $runningPID);
             }
         }
     }
@@ -123,7 +128,7 @@ class FileLock {
     private function lockFile() {
         if (!flock($this->fileHandle, LOCK_EX | LOCK_NB)) {
             if (!fclose($this->fileHandle)) {
-                throw new LockFileOperationFailureException('fclose', 0, null, $this->filename);
+                throw new LockFileOperationFailureException('fclose({$this->filename})', 0, null, $this->filename);
             }
             $this->fileHandle = null;
             return false;
@@ -147,19 +152,19 @@ class FileLock {
         $pid = getmypid();
 
         if (!ftruncate($this->fileHandle, 0)) {
-            throw new LockFileOperationFailureException('ftruncate', 0, null, $this->filename);
+            throw new LockFileOperationFailureException('ftruncate({$this->filename})', 0, null, $this->filename);
         }
 
         if (!rewind($this->fileHandle)) {
-            throw new LockFileOperationFailureException('rewind', 0, null, $this->filename);
+            throw new LockFileOperationFailureException('rewind({$this->filename})', 0, null, $this->filename);
         }
 
         if (!fputs($this->fileHandle, $pid)) {
-            throw new LockFileOperationFailureException('fputs', 0, null, $this->filename);
+            throw new LockFileOperationFailureException('fputs({$this->filename})', 0, null, $this->filename);
         }
 
         if (!fflush($this->fileHandle)) {
-            throw new LockFileOperationFailureException('fflush', 0, null, $this->filename);
+            throw new LockFileOperationFailureException('fflush({$this->filename})', 0, null, $this->filename);
         }
     }
 
@@ -171,18 +176,14 @@ class FileLock {
             return;
         }
 
-        // delete the file before releasing the lock to avoid race conditions
-        if (!unlink($this->filename)) {
-            throw new LockFileOperationFailureException('unlink', 0, null, $this->filename);
-        }
-
         if (!flock($this->fileHandle, LOCK_UN)) {
-            throw new LockFileOperationFailureException('flock', 0, null, $this->filename);
+            throw new LockFileOperationFailureException('flock({$this->filename})', 0, null, $this->filename);
         }
 
-        if (!fclose($this->fileHandle)) {
-            throw new LockFileOperationFailureException('fclose', 0, null, $this->filename);
-        }
+        // ignore errors on closing, as they are not relevant
+        fclose($this->fileHandle);
+
+        // do not delete lock file to avoid race conditions
 
         $this->fileHandle = null;
     }

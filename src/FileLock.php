@@ -164,7 +164,7 @@ class FileLock {
     /**
      * @return string
      */
-    public function getLockFilePath() {
+    public function getLockFileName() {
         return $this->filename;
     }
 

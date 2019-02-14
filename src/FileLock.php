@@ -5,13 +5,8 @@ namespace Fostam\FileLock;
 use Fostam\FileLock\Exception\LockFileNotOpenableException;
 use Fostam\FileLock\Exception\LockFileOperationFailureException;
 use Fostam\FileLock\Exception\LockFileVanishedException;
-use Fostam\FileLock\Exception\StaleLockFileException;
 
 class FileLock {
-    const STALE_LOCK_IGNORE = 1;
-    const STALE_LOCK_WARN = 2;
-    const STALE_LOCK_EXCEPTION = 3;
-
     /**
      * @var string
      */
@@ -48,17 +43,15 @@ class FileLock {
 
     /**
      * @param int $timeout timeout in seconds
-     * @param int $staleLockMode
      * @return bool
      * @throws LockFileNotOpenableException
      * @throws LockFileOperationFailureException
-     * @throws StaleLockFileException
      * @throws LockFileVanishedException
      */
-    public function acquire($timeout = 0, $staleLockMode = self::STALE_LOCK_WARN) {
+    public function acquire($timeout = 0) {
         $maxTS = time() + $timeout;
         do {
-            if ($this->lock($staleLockMode)) {
+            if ($this->lock()) {
                 return true;
             }
 
@@ -74,15 +67,13 @@ class FileLock {
     }
 
     /**
-     * @param int $staleLockMode
      * @return bool
      * @throws LockFileNotOpenableException
      * @throws LockFileOperationFailureException
-     * @throws StaleLockFileException
      * @throws LockFileVanishedException
      */
-    private function lock($staleLockMode = self::STALE_LOCK_WARN) {
-        $this->openFile($staleLockMode);
+    private function lock() {
+        $this->openFile();
         if (!$this->lockFile()) {
             return false;
         }
@@ -93,31 +84,13 @@ class FileLock {
     }
 
     /**
-     * @param int $staleLockMode
      * @throws LockFileNotOpenableException
-     * @throws StaleLockFileException
      */
-    private function openFile($staleLockMode) {
+    private function openFile() {
         $this->fileHandle = fopen($this->filename, 'c+');
         if ($this->fileHandle === false) {
             $errorStr = error_get_last()['message'];
             throw new LockFileNotOpenableException($errorStr, 0, null, $this->filename);
-        }
-
-        if (!function_exists('posix_getpgid')) {
-            return;
-        }
-
-        $runningPID = trim(fgets($this->fileHandle));
-
-        if (!empty($runningPID) && !posix_getpgid($runningPID)) {
-            $msg = "stale lock file {$this->filename} exists with PID {$runningPID}";
-            if ($staleLockMode === self::STALE_LOCK_WARN) {
-                trigger_error($msg, E_USER_WARNING);
-            }
-            else if ($staleLockMode === self::STALE_LOCK_EXCEPTION) {
-                throw new StaleLockFileException($msg, 0, null, $this->filename, $runningPID);
-            }
         }
     }
 

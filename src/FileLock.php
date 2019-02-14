@@ -4,6 +4,7 @@ namespace Fostam\FileLock;
 
 use Fostam\FileLock\Exception\LockFileNotOpenableException;
 use Fostam\FileLock\Exception\LockFileOperationFailureException;
+use Fostam\FileLock\Exception\LockFileVanishedException;
 use Fostam\FileLock\Exception\StaleLockFileException;
 
 class FileLock {
@@ -52,6 +53,7 @@ class FileLock {
      * @throws LockFileNotOpenableException
      * @throws LockFileOperationFailureException
      * @throws StaleLockFileException
+     * @throws LockFileVanishedException
      */
     public function acquire($timeout = 0, $staleLockMode = self::STALE_LOCK_WARN) {
         $maxTS = time() + $timeout;
@@ -77,8 +79,25 @@ class FileLock {
      * @throws LockFileNotOpenableException
      * @throws LockFileOperationFailureException
      * @throws StaleLockFileException
+     * @throws LockFileVanishedException
      */
     private function lock($staleLockMode = self::STALE_LOCK_WARN) {
+        $this->openFile($staleLockMode);
+        if (!$this->lockFile()) {
+            return false;
+        }
+        $this->validateFile();
+        $this->writePID();
+
+        return true;
+    }
+
+    /**
+     * @param int $staleLockMode
+     * @throws LockFileNotOpenableException
+     * @throws StaleLockFileException
+     */
+    private function openFile($staleLockMode) {
         $this->fileHandle = fopen($this->filename, 'c+');
         if ($this->fileHandle === false) {
             $errorStr = error_get_last()['message'];
@@ -95,7 +114,13 @@ class FileLock {
                 throw new StaleLockFileException('stale lock file exists', 0, null, $this->filename, $runningPID);
             }
         }
+    }
 
+    /**
+     * @return bool
+     * @throws LockFileOperationFailureException
+     */
+    private function lockFile() {
         if (!flock($this->fileHandle, LOCK_EX | LOCK_NB)) {
             if (!fclose($this->fileHandle)) {
                 throw new LockFileOperationFailureException('fclose', 0, null, $this->filename);
@@ -103,7 +128,22 @@ class FileLock {
             $this->fileHandle = null;
             return false;
         }
+        return true;
+    }
 
+    /**
+     * @throws LockFileVanishedException
+     */
+    private function validateFile() {
+        if (!file_exists($this->filename)) {
+            throw new LockFileVanishedException();
+        }
+    }
+
+    /**
+     * @throws LockFileOperationFailureException
+     */
+    private function writePID() {
         $pid = getmypid();
 
         if (!ftruncate($this->fileHandle, 0)) {
@@ -121,8 +161,6 @@ class FileLock {
         if (!fflush($this->fileHandle)) {
             throw new LockFileOperationFailureException('fflush', 0, null, $this->filename);
         }
-
-        return true;
     }
 
     /**

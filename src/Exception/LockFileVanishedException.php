@@ -4,22 +4,19 @@ namespace Fostam\FileLock\Exception;
 
 use Throwable;
 
-class StaleLockFileException extends FileLockException {
+class LockFileVanishedException extends FileLockException {
     private $filename;
-    private $pid;
 
     /**
-     * StaleLockFileException constructor.
+     * LockFileVanishedException constructor.
      * @param string $message
      * @param int $code
      * @param Throwable|null $previous
      * @param string $filename
-     * @param int $pid
      */
-    public function __construct($message = '', $code = 0, Throwable $previous = null, $filename = '', $pid = 0) {
+    public function __construct($message = '', $code = 0, Throwable $previous = null, $filename = '') {
         parent::__construct($message, $code, $previous);
         $this->filename = $filename;
-        $this->pid = $pid;
     }
 
     /**
@@ -27,12 +24,5 @@ class StaleLockFileException extends FileLockException {
      */
     public function getFilename() {
         return $this->filename;
-    }
-
-    /**
-     * @return int
-     */
-    public function getPID() {
-        return $this->pid;
     }
 }

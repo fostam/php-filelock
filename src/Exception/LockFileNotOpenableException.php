@@ -4,11 +4,11 @@ namespace Fostam\FileLock\Exception;
 
 use Throwable;
 
-class LockFileNotOpenableException extends \Exception {
+class LockFileNotOpenableException extends FileLockException {
     private $filename;
 
     /**
-     * LockFileOpenException constructor.
+     * LockFileNotOpenableException constructor.
      * @param string $message
      * @param int $code
      * @param Throwable|null $previous

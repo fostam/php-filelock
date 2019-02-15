@@ -87,7 +87,7 @@ class FileLock {
      * @throws LockFileNotOpenableException
      */
     private function openFile() {
-        $this->fileHandle = fopen($this->filename, 'c+');
+        $this->fileHandle = @fopen($this->filename, 'c+');
         if ($this->fileHandle === false) {
             $errorStr = error_get_last()['message'];
             throw new LockFileNotOpenableException($errorStr, 0, null, $this->filename);
@@ -145,7 +145,7 @@ class FileLock {
      * @throws LockFileOperationFailedException
      */
     public function release() {
-        if (is_null($this->fileHandle)) {
+        if (!$this->fileHandle) {
             return;
         }
 

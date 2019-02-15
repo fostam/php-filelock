@@ -3,7 +3,7 @@
 namespace Fostam\FileLock;
 
 use Fostam\FileLock\Exception\LockFileNotOpenableException;
-use Fostam\FileLock\Exception\LockFileOperationFailureException;
+use Fostam\FileLock\Exception\LockFileOperationFailedException;
 use Fostam\FileLock\Exception\LockFileVanishedException;
 
 class FileLock {
@@ -35,7 +35,7 @@ class FileLock {
     }
 
     /**
-     * @throws LockFileOperationFailureException
+     * @throws LockFileOperationFailedException
      */
     public function __destruct() {
         $this->release();
@@ -45,7 +45,7 @@ class FileLock {
      * @param int $timeout timeout in seconds
      * @return bool
      * @throws LockFileNotOpenableException
-     * @throws LockFileOperationFailureException
+     * @throws LockFileOperationFailedException
      * @throws LockFileVanishedException
      */
     public function acquire($timeout = 0) {
@@ -69,7 +69,7 @@ class FileLock {
     /**
      * @return bool
      * @throws LockFileNotOpenableException
-     * @throws LockFileOperationFailureException
+     * @throws LockFileOperationFailedException
      * @throws LockFileVanishedException
      */
     private function lock() {
@@ -96,12 +96,12 @@ class FileLock {
 
     /**
      * @return bool
-     * @throws LockFileOperationFailureException
+     * @throws LockFileOperationFailedException
      */
     private function lockFile() {
         if (!flock($this->fileHandle, LOCK_EX | LOCK_NB)) {
             if (!fclose($this->fileHandle)) {
-                throw new LockFileOperationFailureException('fclose({$this->filename})', 0, null, $this->filename);
+                throw new LockFileOperationFailedException('fclose({$this->filename})', 0, null, $this->filename);
             }
             $this->fileHandle = null;
             return false;
@@ -119,30 +119,30 @@ class FileLock {
     }
 
     /**
-     * @throws LockFileOperationFailureException
+     * @throws LockFileOperationFailedException
      */
     private function writePID() {
         $pid = getmypid();
 
         if (!ftruncate($this->fileHandle, 0)) {
-            throw new LockFileOperationFailureException('ftruncate({$this->filename})', 0, null, $this->filename);
+            throw new LockFileOperationFailedException('ftruncate({$this->filename})', 0, null, $this->filename);
         }
 
         if (!rewind($this->fileHandle)) {
-            throw new LockFileOperationFailureException('rewind({$this->filename})', 0, null, $this->filename);
+            throw new LockFileOperationFailedException('rewind({$this->filename})', 0, null, $this->filename);
         }
 
         if (!fputs($this->fileHandle, $pid)) {
-            throw new LockFileOperationFailureException('fputs({$this->filename})', 0, null, $this->filename);
+            throw new LockFileOperationFailedException('fputs({$this->filename})', 0, null, $this->filename);
         }
 
         if (!fflush($this->fileHandle)) {
-            throw new LockFileOperationFailureException('fflush({$this->filename})', 0, null, $this->filename);
+            throw new LockFileOperationFailedException('fflush({$this->filename})', 0, null, $this->filename);
         }
     }
 
     /**
-     * @throws LockFileOperationFailureException
+     * @throws LockFileOperationFailedException
      */
     public function release() {
         if (is_null($this->fileHandle)) {
@@ -150,7 +150,7 @@ class FileLock {
         }
 
         if (!flock($this->fileHandle, LOCK_UN)) {
-            throw new LockFileOperationFailureException('flock({$this->filename})', 0, null, $this->filename);
+            throw new LockFileOperationFailedException('flock({$this->filename})', 0, null, $this->filename);
         }
 
         // ignore errors on closing, as they are not relevant

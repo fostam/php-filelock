@@ -162,6 +162,17 @@ class FileLock {
     }
 
     /**
+     *
+     */
+    public function refresh() {
+        if (!$this->fileHandle) {
+            return;
+        }
+
+        touch($this->filename);
+    }
+
+    /**
      * @return string
      */
     public function getLockFileName() {

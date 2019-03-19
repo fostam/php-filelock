@@ -3,10 +3,10 @@
 Simple file based locking.
 
 ## Features
-- file based locked with flock()
+- file based locking with flock()
 - works on Unix-like systems as well as Windows
 - supports timeout for acquiring lock
-- no dependencies
+- no third-party dependencies
 
 ## Install
 The easiest way to install FileLock is by using [composer](https://getcomposer.org/): 
@@ -85,6 +85,15 @@ If required, the full lock file name can be retrieved from the `FileLock` object
 ````
 $filename = $fl->getLockFileName();
 ````
+
+If the lock file is kept in a place that is subject to periodic
+cleanups (e.g. `/tmp` on most Linux systems),
+it can be refreshed with the `refresh()` method:
+````
+$fl->refresh();
+````
+
+This will update the file's modification time to the current timestamp.
 
 **NOTE:** To avoid race conditions, the lock file is *not* deleted
 when released. 

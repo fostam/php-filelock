@@ -101,7 +101,7 @@ class FileLock {
     private function lockFile() {
         if (!flock($this->fileHandle, LOCK_EX | LOCK_NB)) {
             if (!fclose($this->fileHandle)) {
-                throw new LockFileOperationFailedException('fclose({$this->filename})', 0, null, $this->filename);
+                throw new LockFileOperationFailedException("fclose({$this->filename})", 0, null, $this->filename);
             }
             $this->fileHandle = null;
             return false;
@@ -125,19 +125,19 @@ class FileLock {
         $pid = getmypid();
 
         if (!ftruncate($this->fileHandle, 0)) {
-            throw new LockFileOperationFailedException('ftruncate({$this->filename})', 0, null, $this->filename);
+            throw new LockFileOperationFailedException("ftruncate({$this->filename})", 0, null, $this->filename);
         }
 
         if (!rewind($this->fileHandle)) {
-            throw new LockFileOperationFailedException('rewind({$this->filename})', 0, null, $this->filename);
+            throw new LockFileOperationFailedException("rewind({$this->filename})", 0, null, $this->filename);
         }
 
         if (!fputs($this->fileHandle, $pid)) {
-            throw new LockFileOperationFailedException('fputs({$this->filename})', 0, null, $this->filename);
+            throw new LockFileOperationFailedException("fputs({$this->filename})", 0, null, $this->filename);
         }
 
         if (!fflush($this->fileHandle)) {
-            throw new LockFileOperationFailedException('fflush({$this->filename})', 0, null, $this->filename);
+            throw new LockFileOperationFailedException("fflush({$this->filename})", 0, null, $this->filename);
         }
     }
 
@@ -150,7 +150,7 @@ class FileLock {
         }
 
         if (!flock($this->fileHandle, LOCK_UN)) {
-            throw new LockFileOperationFailedException('flock({$this->filename})', 0, null, $this->filename);
+            throw new LockFileOperationFailedException("flock({$this->filename})", 0, null, $this->filename);
         }
 
         // ignore errors on closing, as they are not relevant
